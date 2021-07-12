@@ -32,7 +32,7 @@ func main() {
 		klog.ErrorS(err, "terminating ingress controller")
 		os.Exit(1)
 	}
-	resp, err := http.Get("localhost/healthy")
+	resp, err := http.Get("localhost/healthz")
 	if err != nil {
         klog.ErrorS(err, "Error pulling health check!")
 		err := exec.Command("bash", "-c", "pkill --SIGKILL -f nginx-ingress-controller").Run()
