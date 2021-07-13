@@ -21,9 +21,9 @@ import (
 	"os/exec"
 	"time"
 
-	"net/http"
 	"k8s.io/ingress-nginx/internal/nginx"
 	"k8s.io/klog/v2"
+	"net/http"
 )
 
 func main() {
@@ -32,27 +32,28 @@ func main() {
 		klog.ErrorS(err, "terminating ingress controller")
 		os.Exit(1)
 	}
-	resp, err := http.Get("localhost/healthz")
-	if err != nil {
-        klog.ErrorS(err, "Error pulling health check!")
-		err := exec.Command("bash", "-c", "pkill --SIGKILL -f nginx-ingress-controller").Run()
-		if err != nil {
-			klog.ErrorS(err, "killing ingress controller")
-			os.Exit(1)
-		}	
-    }
-	if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
-        
-    } else {
-		err := exec.Command("bash", "-c", "pkill --SIGKILL -f nginx-ingress-controller").Run()
-		if err != nil {
-			klog.ErrorS(err, "killing ingress controller")
-			os.Exit(1)
-		}	
-    }
+
 	// wait for the NGINX process to terminate
 	timer := time.NewTicker(time.Second * 1)
 	for range timer.C {
+		resp, err := http.Get("localhost/healthz")
+		if err != nil {
+			klog.ErrorS(err, "Error pulling health check!")
+			err := exec.Command("bash", "-c", "pkill --SIGKILL -f nginx-ingress-controller").Run()
+			if err != nil {
+				klog.ErrorS(err, "killing ingress controller")
+				os.Exit(1)
+			}
+		}
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			klog.ErrorS(err, "Error pulling health check!", "status", resp.StatusCode)
+			err := exec.Command("bash", "-c", "pkill --SIGKILL -f nginx-ingress-controller").Run()
+			if err != nil {
+				klog.ErrorS(err, "killing ingress controller")
+				os.Exit(1)
+			}
+		}
+
 		if !nginx.IsRunning() {
 			timer.Stop()
 			break
