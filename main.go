@@ -29,29 +29,33 @@ import (
 func main() {
 	err := exec.Command("bash", "-c", "pkill -SIGTERM -f nginx-ingress-controller").Run()
 	if err != nil {
-		klog.ErrorS(err, "terminating ingress controller")
+		klog.Errorf("error terminating ingress controller!: %s", err)
 		os.Exit(1)
 	}
 
+	healthPort := os.Getenv("HEALTH_PORT")
+	hostName := os.Getenv("HOSTNAME")
 	// wait for the NGINX process to terminate
 	timer := time.NewTicker(time.Second * 1)
 	for range timer.C {
-		resp, err := http.Get("localhost/healthz")
+		resp, err := http.Get("http://" + hostName + "/healthz:" + healthPort)
 		if err != nil {
-			klog.ErrorS(err, "Error pulling health check!")
-			err := exec.Command("bash", "-c", "pkill --SIGKILL -f nginx-ingress-controller").Run()
+			klog.Errorf("error pulling health check!: %s", err)
+			err := exec.Command("bash", "-c", "pkill -SIGKILL -f nginx-ingress-controller").Run()
 			if err != nil {
-				klog.ErrorS(err, "killing ingress controller")
+				klog.Errorf("error killing ingress controller!: %s", err)
 				os.Exit(1)
 			}
+			break
 		}
 		if resp.StatusCode < 200 || resp.StatusCode > 299 {
-			klog.ErrorS(err, "Error pulling health check!", "status", resp.StatusCode)
-			err := exec.Command("bash", "-c", "pkill --SIGKILL -f nginx-ingress-controller").Run()
+			klog.Errorf("Unhealthy result from health check: %s", resp.StatusCode)
+			err := exec.Command("bash", "-c", "pkill -SIGKILL -f nginx-ingress-controller").Run()
 			if err != nil {
-				klog.ErrorS(err, "killing ingress controller")
+				klog.Errorf("error killing ingress controller!: %s", err)
 				os.Exit(1)
 			}
+			break
 		}
 
 		if !nginx.IsRunning() {
@@ -60,3 +64,4 @@ func main() {
 		}
 	}
 }
+
