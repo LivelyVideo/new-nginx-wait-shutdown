@@ -17,31 +17,32 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"time"
 
-	"net/http"
-
 	"k8s.io/ingress-nginx/internal/nginx"
+
 	"k8s.io/klog/v2"
 )
 
 func main() {
-	err := exec.Command("bash", "-c", "pkill -SIGQUIT -f nginx-ingress-controller").Run()
+
+	err := exec.Command("bash", "-c", "pkill -SIGTERM -f nginx-ingress-controller").Run()
 	if err != nil {
 		klog.Errorf("error terminating ingress controller!: %s", err)
 		os.Exit(1)
 	}
 
 	healthPort := os.Getenv("HEALTH_PORT")
-	hostName := os.Getenv("HOSTNAME")
 	// wait for the NGINX process to terminate
-	timer := time.NewTicker(time.Second * 1)
+	timer := time.NewTicker(time.Second * 30)
 	for range timer.C {
-		resp, err := http.Get("http://" + hostName + "/healthz:" + healthPort)
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%v/metrics", healthPort))
 		if err != nil {
-			klog.Errorf("error pulling health check!: %s", err)
+			klog.Errorf("error pulling metrics endpoint!: %s", err)
 			err := exec.Command("bash", "-c", "pkill -SIGKILL -f nginx-ingress-controller").Run()
 			if err != nil {
 				klog.Errorf("error killing ingress controller!: %s", err)
@@ -50,7 +51,7 @@ func main() {
 			break
 		}
 		if resp.StatusCode < 200 || resp.StatusCode > 299 {
-			klog.Errorf("Unhealthy result from health check: %s", resp.StatusCode)
+			klog.Errorf("Unhealthy result from metrics endpoint: %s", resp.StatusCode)
 			err := exec.Command("bash", "-c", "pkill -SIGKILL -f nginx-ingress-controller").Run()
 			if err != nil {
 				klog.Errorf("error killing ingress controller!: %s", err)
