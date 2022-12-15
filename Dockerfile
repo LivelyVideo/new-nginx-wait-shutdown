@@ -3,7 +3,6 @@ WORKDIR /go/src/github.com/kubernetes
 RUN git clone https://github.com/kubernetes/ingress-nginx
 WORKDIR /go/src/github.com/kubernetes/ingress-nginx/cmd/waitshutdown
 COPY main.go .
-RUN go mod download github.com/google/pprof
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o new-wait-shutdown .
 
 FROM busybox:latest  
